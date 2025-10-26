@@ -1,0 +1,16 @@
+Virtual environment
+
+venv/
+
+Local database file
+
+agrilink.db
+
+Secret environment file
+
+.env
+
+Python cache
+
+pycache/
+*.pyc

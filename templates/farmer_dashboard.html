@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="dashboard-header">
+        <h2>Welcome, {{ current_user.username }}!</h2>
+        <div>
+            <a href="{{ url_for('transaction_history') }}" class="btn-secondary" style="margin-right: 10px;">My Orders</a>
+            <a href="{{ url_for('add_crop') }}" class="btn-primary">＋ Add New Crop</a>
+        </div>
+    </div>
+
+    <!-- Market Insights -->
+    <div class="insights-section">
+        <h3>Market Insights</h3>
+        <div class="insights-container">
+            <div class="market-prices">
+                <h4>Today's Crop Prices (MSP/Quintal)</h4>
+                {% for crop, data in market_prices.items() %}
+                <div class="price-card">
+                    <span>{{ crop }}</span>
+                    <span class="price-value">₹{{ data.price }}</span>
+                    <span class="trend-arrow {{ 'up' if data.trend == 'up' else 'down' }}">{{ '▲' if data.trend == 'up' else '▼' }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="weather-forecast">
+                <h4>5-Day Weather Forecast</h4>
+                <div class="weather-cards">
+                    {% for day in weather_forecast %}
+                    <div class="weather-card">
+                        <div class="weather-day">{{ day.day }}</div>
+                        <div class="weather-temp">{{ day.temp }}°C</div>
+                        <div class="weather-condition">{{ day.condition }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Negotiations -->
+    <div class="content-section">
+        <h3>Active Negotiations</h3>
+        {% if conversations %}
+            <div class="convo-list">
+                {% for convo in conversations %}
+                    <div class="convo-card">
+                        <h4>{{ convo.crop.name }}</h4>
+                        <p>Conversation with <strong>{{ convo.company.username }}</strong></p>
+                        <a href="{{ url_for('chat', crop_id=convo.crop.id, interlocutor_id=convo.company.id) }}" class="btn-secondary" style="width: 100%; text-align: center;">View Chat</a>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p>You have no active negotiations. When a company messages you, it will appear here.</p>
+        {% endif %}
+    </div>
+
+    <!-- My Listed Crops -->
+    <div class="content-section">
+        <h3>Your Listed Crops</h3>
+        {% if crops %}
+            <div class="crop-list">
+                {% for crop in crops %}
+                    <div class="crop-card">
+                        <img src="{{ url_for('static', filename='uploads/' + crop.image_file) }}" alt="{{ crop.name }}" class="crop-image">
+                        <h4>{{ crop.name }}</h4>
+                        <p><strong>Quantity:</strong> {{ crop.quantity }} Quintals</p>
+                        <p><strong>Asking Price:</strong> ₹{{ "%.2f"|format(crop.price) }} / Quintal</p>
+                        <small>Listed on: {{ crop.date_posted.strftime('%Y-%m-%d') }}</small>
+                        <!-- Add Edit/Delete buttons here later -->
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p>You have not listed any crops yet. Click "Add New Crop" to get started!</p>
+        {% endif %}
+    </div>
+{% endblock %}
+

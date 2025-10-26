@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="dashboard-header">
+        <h2>Marketplace - Available Crops</h2>
+        <a href="{{ url_for('transaction_history') }}" class="btn-secondary">My Orders</a>
+    </div>
+
+    <!-- Market Insights -->
+    <div class="insights-section">
+        <h3>Market Insights</h3>
+        <div class="insights-container">
+            <div class="market-prices">
+                <h4>Today's Crop Prices (MSP/Quintal)</h4>
+                {% for crop, data in market_prices.items() %}
+                <div class="price-card">
+                    <span>{{ crop }}</span>
+                    <span class="price-value">₹{{ data.price }}</span>
+                    <span class="trend-arrow {{ 'up' if data.trend == 'up' else 'down' }}">{{ '▲' if data.trend == 'up' else '▼' }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="weather-forecast">
+                <h4>5-Day Weather Forecast</h4>
+                <div class="weather-cards">
+                    {% for day in weather_forecast %}
+                    <div class="weather-card">
+                        <div class="weather-day">{{ day.day }}</div>
+                        <div class="weather-temp">{{ day.temp }}°C</div>
+                        <div class="weather-condition">{{ day.condition }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search Container -->
+    <div class="search-container">
+        <input type="text" id="crop-search-input" class="form-control" placeholder="Search for a crop...">
+        <button id="voice-search-btn" class="voice-btn" title="Search with your voice">
+            <svg width="24" height="24"><use xlink:href="#mic-icon"></use></svg>
+        </button>
+    </div>
+
+    <!-- Crop Listings -->
+    <div class="content-section" style="background: none; box-shadow: none; padding: 0;">
+        {% if crops %}
+            <div class="crop-list" id="crop-list-container">
+                {% for crop in crops %}
+                    <div class="crop-card" data-crop-name="{{ crop.name.lower() }}">
+                        <img src="{{ url_for('static', filename='uploads/' + crop.image_file) }}" alt="{{ crop.name }}" class="crop-image">
+                        <h4>{{ crop.name }}</h4>
+                        <p><strong>Quantity:</strong> {{ crop.quantity }} Quintals</p>
+                        <p><strong>Price:</strong> ₹{{ "%.2f"|format(crop.price) }} / Quintal</p>
+                        <hr>
+                        <p><strong>Farmer:</strong> {{ crop.author.username }}</p>
+                        <small>Listed on: {{ crop.date_posted.strftime('%Y-%m-%d') }}</small>
+                        <a href="{{ url_for('chat', crop_id=crop.id, interlocutor_id=crop.author.id) }}" class="btn-primary" style="display: block; text-align: center; margin-top: 10px;">Contact Farmer</a>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p>No crops are currently listed in the marketplace.</p>
+        {% endif %}
+    </div>
+{% endblock %}
+

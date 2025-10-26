@@ -1,0 +1,10 @@
+# requirements.txt
+
+Flask
+Flask-SQLAlchemy
+Flask-Login
+Flask-WTF
+email-validator
+gunicorn
+psycopg2-binary
+python-dotenv

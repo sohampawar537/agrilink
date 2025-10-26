@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="ledger-container">
+        <div class="ledger-header">
+            <h2>Transaction Secured on Ledger</h2>
+            <p>This is a permanent, immutable record of your completed transaction.</p>
+        </div>
+        
+        <div class="ledger-hash-container">
+            <strong>Block Hash (SHA-256)</strong>
+            <div class="ledger-hash">{{ block.block_hash }}</div>
+        </div>
+
+        <div class="ledger-details">
+            <h3>Transaction Details</h3>
+            <div class="ledger-item">
+                <span class="ledger-item-label">Order ID:</span>
+                <span class="ledger-item-value">#{{ data.order_id }}</span>
+            </div>
+            <div class="ledger-item">
+                <span class="ledger-item-label">Crop:</span>
+                <span class="ledger-item-value">{{ data.crop }}</span>
+            </div>
+            <div class="ledger-item">
+                <span class="ledger-item-label">Quantity:</span>
+                <span class="ledger-item-value">{{ data.quantity }} Quintals</span>
+            </div>
+            <div class="ledger-item">
+                <span class="ledger-item-label">Total Price:</span>
+                <span class="ledger-item-value">₹{{ "%.2f"|format(data.total_price) }}</span>
+            </div>
+            <div class="ledger-item">
+                <span class="ledger-item-label">Farmer ID:</span>
+                <span class="ledger-item-value">{{ data.farmer_id }}</span>
+            </div>
+            <div class="ledger-item">
+                <span class="ledger-item-label">Company ID:</span>
+                <span class="ledger-item-value">{{ data.company_id }}</span>
+            </div>
+            <div class="ledger-item">
+                <span class="ledger-item-label">Timestamp:</span>
+                <span class="ledger-item-value">{{ block.timestamp.strftime('%Y-%m-%d %H:%M:%S') }} UTC</span>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+

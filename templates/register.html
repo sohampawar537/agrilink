@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="form-container">
+    <h2>Join AgriLink Today</h2>
+    <form method="POST" action="">
+        {{ form.hidden_tag() }} <!-- Important for CSRF protection -->
+
+        <div class="form-group">
+            {{ form.username.label(class="form-label") }}
+            {{ form.username(class="form-control") }}
+            {% if form.username.errors %}
+                <div class="error-msg">{{ form.username.errors[0] }}</div>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            {{ form.email.label(class="form-label") }}
+            {{ form.email(class="form-control") }}
+            {% if form.email.errors %}
+                <div class="error-msg">{{ form.email.errors[0] }}</div>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            {{ form.password.label(class="form-label") }}
+            {{ form.password(class="form-control") }}
+            {% if form.password.errors %}
+                <div class="error-msg">{{ form.password.errors[0] }}</div>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            {{ form.confirm_password.label(class="form-label") }}
+            {{ form.confirm_password(class="form-control") }}
+            {% if form.confirm_password.errors %}
+                <div class="error-msg">{{ form.confirm_password.errors[0] }}</div>
+            {% endif %}
+        </div>
+        
+        <div class="form-group">
+            {{ form.role.label(class="form-label") }}
+            <div class="radio-options">
+                {% for subfield in form.role %}
+                    <span>{{ subfield }} {{ subfield.label }}</span>
+                {% endfor %}
+            </div>
+            {% if form.role.errors %}
+                <div class="error-msg">{{ form.role.errors[0] }}</div>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            {{ form.submit(class="submit-btn") }}
+        </div>
+    </form>
+    <div class="form-footer">
+        <small>
+            Already have an account? <a href="{{ url_for('login') }}">Log In</a>
+        </small>
+    </div>
+</div>
+{% endblock %}
+
