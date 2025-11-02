@@ -2,73 +2,69 @@
 
 {% block content %}
     <div class="dashboard-header">
-        <h2>Welcome, {{ current_user.username }}!</h2>
-        <div>
-            <a href="{{ url_for('transaction_history') }}" class="btn-secondary" style="margin-right: 10px;">My Orders</a>
-            <a href="{{ url_for('add_crop') }}" class="btn-primary">＋ Add New Crop</a>
-        </div>
+        <h2>Welcome, {{ current_user.username }}! (Farmer)</h2>
+        <a href="{{ url_for('add_crop') }}" class="btn-primary">＋ Add New Crop</a>
     </div>
 
     <!-- Market Insights -->
-    <div class="insights-section">
-        <h3>Market Insights</h3>
-        <div class="insights-container">
-            <div class="market-prices">
-                <h4>Today's Crop Prices (MSP/Quintal)</h4>
-                {% for crop, data in market_prices.items() %}
-                <div class="price-card">
-                    <span>{{ crop }}</span>
-                    <span class="price-value">₹{{ data.price }}</span>
-                    <span class="trend-arrow {{ 'up' if data.trend == 'up' else 'down' }}">{{ '▲' if data.trend == 'up' else '▼' }}</span>
-                </div>
+    <div class="insights-grid">
+        <div class="content-section">
+            <h3>📈 Market Price Trends</h3>
+            <ul class="price-trends-list">
+                {% for item in prices %}
+                <li class="price-item">
+                    <span class="price-name">{{ item.name }}</span>
+                    <span class="price-value">₹{{ "%.2f"|format(item.price) }}</span>
+                    <span class="price-change">{{ item.change }}</span>
+                </li>
                 {% endfor %}
-            </div>
-            <div class="weather-forecast">
-                <h4>5-Day Weather Forecast</h4>
-                <div class="weather-cards">
-                    {% for day in weather_forecast %}
-                    <div class="weather-card">
-                        <div class="weather-day">{{ day.day }}</div>
-                        <div class="weather-temp">{{ day.temp }}°C</div>
-                        <div class="weather-condition">{{ day.condition }}</div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
+            </ul>
+        </div>
+        <div class="content-section">
+            <h3>🌦️ 5-Day Weather Forecast</h3>
+            <ul class="weather-forecast-list">
+                {% for item in weather %}
+                <li class="weather-item">
+                    <span class="weather-day">{{ item.day }}</span>
+                    <span class="weather-icon">{{ item.icon }}</span>
+                    <span class="weather-temp">{{ item.temp }}</span>
+                </li>
+                {% endfor %}
+            </ul>
         </div>
     </div>
 
     <!-- Active Negotiations -->
     <div class="content-section">
-        <h3>Active Negotiations</h3>
-        {% if conversations %}
-            <div class="convo-list">
-                {% for convo in conversations %}
-                    <div class="convo-card">
-                        <h4>{{ convo.crop.name }}</h4>
-                        <p>Conversation with <strong>{{ convo.company.username }}</strong></p>
-                        <a href="{{ url_for('chat', crop_id=convo.crop.id, interlocutor_id=convo.company.id) }}" class="btn-secondary" style="width: 100%; text-align: center;">View Chat</a>
-                    </div>
+        <h3>💬 Active Negotiations</h3>
+        {% if active_chats %}
+            <div class="chat-list">
+                {% for chat in active_chats %}
+                    <a href="{{ url_for('chat', crop_id=chat.crop_id, other_user_id=chat.company_id) }}" class="chat-item">
+                        <span>New message from <strong>{{ chat.company_name }}</strong> regarding <strong>{{ chat.crop_name }}</strong></span>
+                        <span class="btn-primary">View Chat</span>
+                    </a>
                 {% endfor %}
             </div>
         {% else %}
-            <p>You have no active negotiations. When a company messages you, it will appear here.</p>
+            <p>You have no new messages from companies.</p>
         {% endif %}
     </div>
 
-    <!-- My Listed Crops -->
+    <!-- Farmer's Listed Crops -->
     <div class="content-section">
-        <h3>Your Listed Crops</h3>
+        <h3>🌾 Your Listed Crops</h3>
         {% if crops %}
             <div class="crop-list">
                 {% for crop in crops %}
                     <div class="crop-card">
-                        <img src="{{ url_for('static', filename='uploads/' + crop.image_file) }}" alt="{{ crop.name }}" class="crop-image">
-                        <h4>{{ crop.name }}</h4>
-                        <p><strong>Quantity:</strong> {{ crop.quantity }} Quintals</p>
-                        <p><strong>Asking Price:</strong> ₹{{ "%.2f"|format(crop.price) }} / Quintal</p>
-                        <small>Listed on: {{ crop.date_posted.strftime('%Y-%m-%d') }}</small>
-                        <!-- Add Edit/Delete buttons here later -->
+                        <img src="{{ url_for('static', filename='uploads/' + crop.image_file) }}" alt="{{ crop.name }}" class="crop-card-image">
+                        <div class="crop-card-content">
+                            <h4>{{ crop.name }}</h4>
+                            <p><strong>Quantity:</strong> {{ crop.quantity }} Quintals</p>
+                            <p><strong>Asking Price:</strong> ₹{{ "%.2f"|format(crop.price) }} / Quintal</p>
+                            <small>Listed on: {{ crop.date_posted.strftime('%Y-%m-%d') }}</small>
+                        </div>
                     </div>
                 {% endfor %}
             </div>

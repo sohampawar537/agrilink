@@ -1,192 +1,29 @@
 import os
 import secrets
 import hashlib
-from datetime import datetime, timedelta
+from datetime import datetime
 from flask import Flask, render_template, url_for, flash, redirect, request, jsonify, abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, login_user, current_user, logout_user, login_required, UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from flask_wtf import FlaskForm
-from flask_wtf.file import FileField, FileAllowed
-from wtforms import StringField, PasswordField, SubmitField, RadioField, BooleanField, FloatField, IntegerField, TextAreaField
-from wtforms.validators import DataRequired, Email, EqualTo, Length, ValidationError
-from dotenv import load_dotenv
 
-# --- Configuration ---
-
-# Load environment variables from .env file
-load_dotenv()
-
-# Get the absolute path of the directory where this file is located
-basedir = os.path.abspath(os.path.dirname(__file__))
-
-class Config:
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'a-very-secret-and-hard-to-guess-string'
-    
-    # Configure the database location
-    # Use DATABASE_URL from environment if available (for production),
-    # otherwise default to a local sqlite file (for development).
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-        'sqlite:///' + os.path.join(basedir, 'agrilink.db')
-    
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
-    
-    # Configure the upload folder
-    UPLOAD_FOLDER = os.path.join(basedir, 'static/uploads')
-    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+# Import Config and db/models
+from config import Config
+from models import db, User, Crop, Message, Order, Transaction, LogisticsPartner, Block
+from forms import RegistrationForm, LoginForm, CropForm, MessageForm, OrderForm
 
 # --- Application and Database Initialization ---
 
 app = Flask(__name__)
 app.config.from_object(Config)
-db = SQLAlchemy(app)
+
+# Initialize extensions
+db.init_app(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 login_manager.login_message_category = 'info'
 
-# --- Database Models ---
-
-class User(db.Model, UserMixin):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(128), nullable=False)
-    role = db.Column(db.String(20), nullable=False)  # 'farmer' or 'company'
-    location = db.Column(db.String(100))
-    
-    # Relationships
-    crops = db.relationship('Crop', backref='author', lazy=True)
-    sent_messages = db.relationship('Message', foreign_keys='Message.sender_id', backref='author', lazy=True)
-    received_messages = db.relationship('Message', foreign_keys='Message.recipient_id', backref='recipient', lazy=True)
-    orders_placed = db.relationship('Order', foreign_keys='Order.company_id', backref='company', lazy=True)
-    orders_received = db.relationship('Order', foreign_keys='Order.farmer_id', backref='farmer', lazy=True)
-
-    def __repr__(self):
-        return f'<User {self.username}>'
-
-class Crop(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    quantity = db.Column(db.Float, nullable=False)
-    price = db.Column(db.Float, nullable=False)
-    image_file = db.Column(db.String(100), nullable=False, default='default.jpg')
-    date_posted = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    farmer_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    
-    # Relationships
-    messages = db.relationship('Message', backref='crop', lazy=True)
-    orders = db.relationship('Order', backref='crop', lazy=True)
-
-    def __repr__(self):
-        return f'<Crop {self.name}>'
-
-class Message(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    body = db.Column(db.Text, nullable=False)
-    timestamp = db.Column(db.DateTime, index=True, default=datetime.utcnow)
-    sender_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    recipient_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    crop_id = db.Column(db.Integer, db.ForeignKey('crop.id'))
-
-    def __repr__(self):
-        return f'<Message {self.body}>'
-
-class Order(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    company_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    farmer_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    crop_id = db.Column(db.Integer, db.ForeignKey('crop.id'), nullable=False)
-    
-    quantity = db.Column(db.Float, nullable=False)
-    total_price = db.Column(db.Float, nullable=False)
-    status = db.Column(db.String(50), nullable=False, default='Pending Payment') # e.g., Pending Payment, Paid, Awaiting Pickup, Shipped, Delivered
-    order_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    
-    # Logistics
-    logistics_partner_id = db.Column(db.Integer, db.ForeignKey('logistics_partner.id'), nullable=True)
-    
-    # Relationship
-    transaction = db.relationship('Transaction', backref='order', uselist=False, lazy=True)
-    block = db.relationship('Block', backref='order', uselist=False, lazy=True)
-
-class Transaction(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    order_id = db.Column(db.Integer, db.ForeignKey('order.id'), nullable=False)
-    payment_method = db.Column(db.String(50), nullable=False, default='Mock Payment')
-    payment_status = db.Column(db.String(50), nullable=False, default='Completed')
-    transaction_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-
-class LogisticsPartner(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), unique=True, nullable=False)
-    contact_email = db.Column(db.String(120), unique=True, nullable=False)
-    vehicles_available = db.Column(db.Integer, nullable=False)
-    
-    # Relationship
-    orders = db.relationship('Order', backref='logistics_partner', lazy=True)
-
-class Block(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    order_id = db.Column(db.Integer, db.ForeignKey('order.id'), unique=True, nullable=False)
-    previous_hash = db.Column(db.String(64), nullable=False)
-    timestamp = db.Column(db.DateTime, index=True, default=datetime.utcnow)
-    transaction_data = db.Column(db.Text, nullable=False)
-    block_hash = db.Column(db.String(64), unique=True, nullable=False)
-
-    def __repr__(self):
-        return f'<Block {self.block_hash}>'
-
-# --- Forms ---
-
-class RegistrationForm(FlaskForm):
-    username = StringField('Username', 
-                           validators=[DataRequired(), Length(min=4, max=20)])
-    email = StringField('Email',
-                        validators=[DataRequired(), Email()])
-    password = PasswordField('Password', validators=[DataRequired(), Length(min=6)])
-    confirm_password = PasswordField('Confirm Password',
-                                     validators=[DataRequired(), EqualTo('password')])
-    role = RadioField('I am a:', choices=[('farmer', 'Farmer'), ('company', 'Company')],
-                      validators=[DataRequired()])
-    submit = SubmitField('Sign Up')
-
-    def validate_username(self, username):
-        user = User.query.filter_by(username=username.data).first()
-        if user:
-            raise ValidationError('That username is taken. Please choose a different one.')
-
-    def validate_email(self, email):
-        user = User.query.filter_by(email=email.data).first()
-        if user:
-            raise ValidationError('That email is already in use. Please choose a different one.')
-
-class LoginForm(FlaskForm):
-    email = StringField('Email',
-                        validators=[DataRequired(), Email()])
-    password = PasswordField('Password', validators=[DataRequired()])
-    remember = BooleanField('Remember Me')
-    submit = SubmitField('Login')
-
-def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in Config.ALLOWED_EXTENSIONS
-
-class CropForm(FlaskForm):
-    name = StringField('Crop Name', validators=[DataRequired()])
-    quantity = FloatField('Quantity (in Quintals)', validators=[DataRequired()])
-    price = FloatField('Expected Price (per Quintal)', validators=[DataRequired()])
-    image = FileField('Crop Image', validators=[FileAllowed(Config.ALLOWED_EXTENSIONS, 'Images only!')])
-    submit = SubmitField('List Crop')
-
-class MessageForm(FlaskForm):
-    body = TextAreaField('Message', validators=[DataRequired(), Length(min=1, max=1000)])
-    submit = SubmitField('Send')
-
-class OrderForm(FlaskForm):
-    quantity = FloatField('Quantity (in Quintals)', validators=[DataRequired()])
-    price_per_quintal = FloatField('Price per Quintal', validators=[DataRequired()])
-    submit = SubmitField('Create Order')
 
 # --- Helper Functions ---
 
@@ -196,13 +33,10 @@ def save_picture(form_picture):
     picture_fn = random_hex + f_ext
     picture_path = os.path.join(app.config['UPLOAD_FOLDER'], picture_fn)
     
-    # Resize image if needed (optional)
-    # output_size = (500, 500)
-    # i = Image.open(form_picture)
-    # i.thumbnail(output_size)
-    # i.save(picture_path)
+    # Create the uploads directory if it doesn't exist
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     
-    # For now, just save
+    # Save the picture
     form_picture.save(picture_path)
     
     return picture_fn
@@ -250,13 +84,11 @@ def login():
             login_user(user, remember=form.remember.data)
             flash('Login successful!', 'success')
             
-            # Redirect to the 'next' page if it exists (e.g., if user was trying to access a protected page)
             next_page = request.args.get('next')
             
             if next_page:
                 return redirect(next_page)
             
-            # Otherwise, redirect to the appropriate dashboard
             if user.role == 'farmer':
                 return redirect(url_for('farmer_dashboard'))
             else:
@@ -275,7 +107,6 @@ def logout():
 class MarketDataService:
     @staticmethod
     def get_price_trends():
-        # In a real app, this would call an external API
         return [
             {"name": "Wheat", "price": 2050.00, "change": "+1.5%"},
             {"name": "Rice (Paddy)", "price": 1940.00, "change": "-0.5%"},
@@ -284,7 +115,6 @@ class MarketDataService:
     
     @staticmethod
     def get_weather_forecast():
-        # In a real app, this would call a weather API with user's location
         return [
             {"day": "Today", "icon": "☀️", "temp": "31°C"},
             {"day": "Mon", "icon": "☀️", "temp": "32°C"},
@@ -296,14 +126,13 @@ class MarketDataService:
 class PricePredictionService:
     @staticmethod
     def predict_price(crop_name):
-        # Simple AI model: Calculate average price from past "Paid" or "Delivered" orders
         orders = db.session.query(Order).join(Crop).filter(
             Crop.name == crop_name,
             Order.status.in_(['Paid', 'Awaiting Pickup', 'Shipped', 'Delivered'])
         ).all()
         
         if not orders:
-            return None # Not enough data
+            return None
             
         total_price = sum(o.total_price for o in orders)
         total_quantity = sum(o.quantity for o in orders)
@@ -322,22 +151,17 @@ def farmer_dashboard():
     if current_user.role != 'farmer':
         abort(403)
     
-    # Market Data
     prices = MarketDataService.get_price_trends()
     weather = MarketDataService.get_weather_forecast()
     
-    # Farmer's Crops
     crops = Crop.query.filter_by(farmer_id=current_user.id).order_by(Crop.date_posted.desc()).all()
     
-    # Farmer's Active Negotiations
-    # Find all unique conversations (crop_id, company_id)
     conversations = db.session.query(Message.crop_id, Crop.name, Message.sender_id, User.username)\
         .join(Crop, Message.crop_id == Crop.id)\
         .join(User, Message.sender_id == User.id)\
         .filter(Message.recipient_id == current_user.id)\
         .distinct().all()
         
-    # Reformat for template
     active_chats = [
         {"crop_id": c[0], "crop_name": c[1], "company_id": c[2], "company_name": c[3]}
         for c in conversations
@@ -379,11 +203,9 @@ def company_dashboard():
     if current_user.role != 'company':
         abort(403)
     
-    # Market Data
     prices = MarketDataService.get_price_trends()
     weather = MarketDataService.get_weather_forecast()
     
-    # All Crops from all farmers
     crops = Crop.query.order_by(Crop.date_posted.desc()).all()
     return render_template('company_dashboard.html', crops=crops, prices=prices, weather=weather)
 
@@ -395,11 +217,9 @@ def chat(crop_id, other_user_id):
     crop = Crop.query.get_or_404(crop_id)
     other_user = User.query.get_or_404(other_user_id)
     
-    # Security check: Ensure current user is part of this transaction
     if current_user.id != crop.farmer_id and current_user.id != other_user_id:
         abort(403)
     
-    # Determine sender and recipient for this chat
     if current_user.role == 'farmer':
         farmer_id = current_user.id
         company_id = other_user_id
@@ -486,18 +306,13 @@ def process_payment(order_id):
     if current_user.id != order.company_id:
         abort(403)
     
-    # --- Mock Payment Logic ---
-    # In a real app, this would integrate with Razorpay, Stripe, etc.
-    # For now, we'll just create a transaction record and update the order.
-    
     transaction = Transaction(order_id=order.id)
     order.status = 'Paid'
     
-    # Update crop quantity
     if order.crop:
         order.crop.quantity -= order.quantity
         if order.crop.quantity < 0:
-            order.crop.quantity = 0 # Ensure it doesn't go negative
+            order.crop.quantity = 0
     
     db.session.add(transaction)
     db.session.commit()
@@ -528,13 +343,10 @@ def deliver_order(order_id):
         
     order.status = 'Delivered'
     
-    # --- Create Blockchain Entry ---
     try:
-        # 1. Get the last block's hash (or a genesis hash)
         last_block = Block.query.order_by(Block.timestamp.desc()).first()
         previous_hash = last_block.block_hash if last_block else '0' * 64
         
-        # 2. Prepare transaction data
         data = f"OrderID: {order.id}, " \
                f"Farmer: {order.farmer.username}, " \
                f"Company: {order.company.username}, " \
@@ -542,12 +354,10 @@ def deliver_order(order_id):
                f"Quantity: {order.quantity}, " \
                f"Price: {order.total_price}"
         
-        # 3. Create the hash for the new block
         timestamp = datetime.utcnow()
         block_header = f"{previous_hash}{timestamp}{data}"
         block_hash = hashlib.sha256(block_header.encode()).hexdigest()
         
-        # 4. Create and save the new block
         new_block = Block(
             order_id=order.id,
             previous_hash=previous_hash,
@@ -558,7 +368,6 @@ def deliver_order(order_id):
         db.session.add(new_block)
         
     except Exception as e:
-        # Don't fail the delivery if blockchain write fails
         print(f"Error creating block: {e}")
         
     db.session.commit()
@@ -575,9 +384,8 @@ def view_ledger(order_id):
     block = Block.query.filter_by(order_id=order.id).first()
     
     if not block:
-        abort(404) # No block found for this order
+        abort(404)
         
-    # Security check: Only farmer or company involved can view
     if current_user.id != order.farmer_id and current_user.id != order.company_id:
         abort(403)
         
@@ -638,23 +446,24 @@ def assign_logistics(order_id):
 # --- Database Seeding Function ---
 
 def seed_logistics_partners():
-    # Check if partners already exist
     if LogisticsPartner.query.count() > 0:
-        return # Already seeded
+        return
 
-    # Create mock partners
-    p1 = LogisticsPartner(name="AgriFast Transport", contact_email="contact@agrifast.com", vehicles_available=50)
-    p2 = LogisticsPartner(name="QuickCrop Logistics", contact_email="info@quickcrop.com", vehicles_available=30)
-    p3 = LogisticsPartner(name="Rural Express", contact_email="dispatch@ruralexpress.in", vehicles_available=75)
+    try:
+        p1 = LogisticsPartner(name="AgriFast Transport", contact_email="contact@agrifast.com", vehicles_available=50)
+        p2 = LogisticsPartner(name="QuickCrop Logistics", contact_email="info@quickcrop.com", vehicles_available=30)
+        p3 = LogisticsPartner(name="Rural Express", contact_email="dispatch@ruralexpress.in", vehicles_available=75)
 
-    db.session.add_all([p1, p2, p3])
-    db.session.commit()
-    print("Logistics partners seeded.")
+        db.session.add_all([p1, p2, p3])
+        db.session.commit()
+        print("Logistics partners seeded.")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error seeding logistics partners: {e}")
+
 
 # --- Main Run ---
 
-# This block is for local development only.
-# Gunicorn will not run this.
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
@@ -663,12 +472,10 @@ if __name__ == '__main__':
 
 
 # --- NEW: Database Initialization Command ---
-# This command is for deployment (e.g., on Render)
 @app.cli.command("init-db")
 def init_db_command():
     """Creates the database tables and seeds logistics partners."""
     db.create_all()
     seed_logistics_partners()
     print("Database initialized and partners seeded!")
-# ---------------------------------------------
 

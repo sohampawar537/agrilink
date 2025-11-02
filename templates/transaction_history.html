@@ -2,7 +2,7 @@
 
 {% block content %}
     <div class="dashboard-header">
-        <h2>My Order History</h2>
+        <h2>Your Transaction History</h2>
     </div>
 
     <div class="content-section">
@@ -12,52 +12,58 @@
                     <tr>
                         <th>Order ID</th>
                         <th>Crop</th>
-                        <th>Date</th>
+                        <th>{{ 'Company' if current_user.role == 'farmer' else 'Farmer' }}</th>
+                        <th>Quantity</th>
                         <th>Total Price</th>
+                        <th>Date</th>
                         <th>Status</th>
-                        <th>Logistics</th>
-                        <th>Actions</th>
+                        <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for order in orders %}
                         <tr>
                             <td>#{{ order.id }}</td>
-                            <td>{{ order.crop.name }} ({{ order.quantity }} Qtl)</td>
+                            <td>{{ order.crop.name }}</td>
+                            <td>{{ order.company.username if current_user.role == 'farmer' else order.farmer.username }}</td>
+                            <td>{{ order.quantity }} Quintals</td>
+                            <td>₹{{ "%.2f"|format(order.total_price) }}</td>
                             <td>{{ order.order_date.strftime('%Y-%m-%d') }}</td>
-                            <td>₹{{ "%.2f"|format(order.final_price) }}</td>
                             <td>
-                                <!-- Use a class name that won't break with spaces -->
-                                <span class="status-badge status-{{ order.status.split(' ')[0] }}">
+                                <span class="status-badge status-{{ order.status.lower().replace(' ', '-') }}">
                                     {{ order.status }}
                                 </span>
                             </td>
-                            <td>{{ order.logistics_partner.name if order.logistics_partner else 'N/A' }}</td>
                             <td>
-                                <!-- 1. Company: Pay -->
-                                {% if current_user.role == 'company' and order.status == 'Pending Payment' %}
-                                    <a href="{{ url_for('process_payment', order_id=order.id) }}" class="btn-primary">Pay Now</a>
+                                <!-- Actions for Company -->
+                                {% if current_user.role == 'company' %}
+                                    {% if order.status == 'Pending Payment' %}
+                                        <form method="POST" action="{{ url_for('process_payment', order_id=order.id) }}" style="display: inline;">
+                                            <button type="submit" class="action-btn pay">Pay Now</button>
+                                        </form>
+                                    {% elif order.status == 'Shipped' %}
+                                        <form method="POST" action="{{ url_for('deliver_order', order_id=order.id) }}" style="display: inline;">
+                                            <button type="submit" class="action-btn deliver">Confirm Delivery</button>
+                                        </form>
+                                    {% elif order.status == 'Delivered' %}
+                                        <a href="{{ url_for('view_ledger', order_id=order.id) }}" class="action-btn ledger">View on Ledger</a>
+                                    {% else %}
+                                        -
+                                    {% endif %}
                                 
-                                <!-- 2. Farmer: Arrange Transport -->
-                                {% elif current_user.role == 'farmer' and order.status == 'Paid' %}
-                                    <button class="btn-secondary arrange-transport-btn" data-order-id="{{ order.id }}">
-                                        Arrange Transport
-                                    </button>
-
-                                <!-- 3. Farmer: Mark as Shipped -->
-                                {% elif current_user.role == 'farmer' and order.status == 'Awaiting Pickup' %}
-                                    <a href="{{ url_for('ship_order', order_id=order.id) }}" class="btn-tertiary">Mark as Shipped</a>
-
-                                <!-- 4. Company: Confirm Delivery -->
-                                {% elif current_user.role == 'company' and order.status == 'Shipped' %}
-                                    <a href="{{ url_for('deliver_order', order_id=order.id) }}" class="btn-success">Confirm Delivery</a>
-
-                                <!-- 5. Both: View on Ledger -->
-                                {% elif order.status == 'Delivered' %}
-                                    <a href="{{ url_for('view_ledger_block', block_id=order.block.id) }}" class="btn-link">View on Ledger</a>
-
+                                <!-- Actions for Farmer -->
                                 {% else %}
-                                    <span>No Action</span>
+                                    {% if order.status == 'Paid' %}
+                                        <button class="action-btn btn-arrange-transport" data-order-id="{{ order.id }}">Arrange Transport</button>
+                                    {% elif order.status == 'Awaiting Pickup' %}
+                                        <form method="POST" action="{{ url_for('ship_order', order_id=order.id) }}" style="display: inline;">
+                                            <button type="submit" class="action-btn ship">Mark as Shipped</button>
+                                        </form>
+                                    {% elif order.status == 'Delivered' %}
+                                         <a href="{{ url_for('view_ledger', order_id=order.id) }}" class="action-btn ledger">View on Ledger</a>
+                                    {% else %}
+                                        -
+                                    {% endif %}
                                 {% endif %}
                             </td>
                         </tr>
@@ -65,23 +71,23 @@
                 </tbody>
             </table>
         {% else %}
-            <p>You have no order history.</p>
+            <p>You have no transaction history.</p>
         {% endif %}
     </div>
 
-    <!-- Logistics Partner Modal -->
-    <div id="logistics-modal" class="modal">
+    <!-- Logistics Modal (for Farmer) -->
+    {% if current_user.role == 'farmer' %}
+    <div id="logisticsModal" class="modal">
         <div class="modal-content">
-            <div class="modal-header">
-                <h2>Select a Logistics Partner</h2>
-                <span class="close-btn">&times;</span>
-            </div>
-            <div class="modal-body">
-                <ul id="partner-list" class="partner-list">
-                    <!-- Partners will be loaded here by JavaScript -->
-                </ul>
-            </div>
+            <span class="modal-close">&times;</span>
+            <h3>Select a Logistics Partner</h3>
+            <p>Choose a partner to handle the pickup and delivery for this order.</p>
+            <ul id="logistics-partner-list">
+                <!-- Content will be loaded by JavaScript -->
+            </ul>
         </div>
     </div>
+    {% endif %}
+
 {% endblock %}
 

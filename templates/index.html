@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+
 {% block content %}
     <div class="hero">
         <h1>Connecting Farmers Directly to the Market</h1>
@@ -8,17 +9,19 @@
 
     <div class="features">
         <h2>How It Works</h2>
-        <div class="feature-card">
-            <h3>1. Register Your Profile</h3>
-            <p>Farmers list their crops, companies post their needs.</p>
-        </div>
-        <div class="feature-card">
-            <h3>2. Discover & Connect</h3>
-            <p>Search, filter, and start a conversation directly.</p>
-        </div>
-        <div class="feature-card">
-            <h3>3. Trade Securely</h3>
-            <p>Negotiate, pay, and arrange logistics all on one platform.</p>
+        <div class="features-grid">
+            <div class="feature-card">
+                <h3>1. Register Your Profile</h3>
+                <p>Farmers list their crops, companies post their needs.</p>
+            </div>
+            <div class="feature-card">
+                <h3>2. Discover & Connect</h3>
+                <p>Search, filter, and start a conversation directly.</p>
+            </div>
+            <div class="feature-card">
+                <h3>3. Trade Securely</h3>
+                <p>Negotiate and complete your transaction with our secure platform.</p>
+            </div>
         </div>
     </div>
 {% endblock %}

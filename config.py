@@ -1,19 +1,24 @@
 import os
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Get the absolute path of the directory where this file is located
 basedir = os.path.abspath(os.path.dirname(__file__))
+# Load environment variables from .env file
 load_dotenv(os.path.join(basedir, '.env'))
 
 class Config:
-    # Get the secret key from the environment file
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'you-must-set-a-secret-key-in-.env'
+    # A secret key is needed for session security and forms
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'a-very-secret-and-hard-to-guess-string'
     
-    # Configure the database
-    # It will use the 'DATABASE_URL' from the live server (like Render)
-    # or default to our local 'agrilink.db' file if it's not set.
+    # Configure the database location
+    # Use DATABASE_URL from environment if available (for production),
+    # otherwise default to a local sqlite file (for development).
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
         'sqlite:///' + os.path.join(basedir, 'agrilink.db')
     
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    
+    # Configure the upload folder
+    UPLOAD_FOLDER = os.path.join(basedir, 'static/uploads')
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 

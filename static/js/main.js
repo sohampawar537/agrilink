@@ -1,206 +1,199 @@
-// Wait for the DOM to be fully loaded before running scripts
-document.addEventListener("DOMContentLoaded", function() {
+document.addEventListener('DOMContentLoaded', function() {
 
-    // --- AI Price Suggestion ---
-    const suggestPriceBtn = document.getElementById("suggest-price-btn");
-    const cropNameInput = document.getElementById("crop-name");
-    const priceInput = document.getElementById("price");
+    // --- Voice Search Functionality ---
+    const voiceSearchBtn = document.getElementById('voice-search-btn');
+    const searchBar = document.getElementById('search-bar');
+    const micIcon = document.getElementById('mic-icon');
 
-    if (suggestPriceBtn) {
-        suggestPriceBtn.addEventListener("click", function() {
-            const cropName = cropNameInput.value;
-            if (!cropName) {
-                alert("Please enter a crop name first.");
-                return;
-            }
-
-            // Show loading state
-            suggestPriceBtn.textContent = "Loading...";
-            suggestPriceBtn.disabled = true;
-
-            // Fetch the predicted price from our API
-            fetch(`/api/predict-price?crop=${encodeURIComponent(cropName)}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
-                        alert(data.error);
-                    } else if (data.predicted_price) {
-                        priceInput.value = data.predicted_price;
-                    }
-                    // Restore button
-                    suggestPriceBtn.textContent = "Suggest Price";
-                    suggestPriceBtn.disabled = false;
-                })
-                .catch(error => {
-                    console.error("Error fetching price prediction:", error);
-                    alert("Could not fetch price suggestion.");
-                    suggestPriceBtn.textContent = "Suggest Price";
-                    suggestPriceBtn.disabled = false;
-                });
-        });
-    }
-
-    // --- Real-time Crop Search (Company Dashboard) ---
-    const searchInput = document.getElementById("crop-search-input");
-    const cropListContainer = document.getElementById("crop-list-container");
-
-    if (searchInput && cropListContainer) {
-        const allCards = cropListContainer.getElementsByClassName("crop-card");
-
-        searchInput.addEventListener("keyup", function(e) {
-            const searchTerm = e.target.value.toLowerCase();
-            
-            for (let card of allCards) {
-                const cropName = card.dataset.cropName; // We set this data-* attribute in the HTML
-                if (cropName.includes(searchTerm)) {
-                    card.style.display = "block";
-                } else {
-                    card.style.display = "none";
-                }
-            }
-        });
-    }
-
-    // --- Voice Search (Company Dashboard) ---
-    const voiceSearchBtn = document.getElementById("voice-search-btn");
-    if (voiceSearchBtn) {
-        // Check if browser supports Speech Recognition
+    if (voiceSearchBtn && searchBar && micIcon) {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (SpeechRecognition) {
             const recognition = new SpeechRecognition();
             recognition.continuous = false;
-            recognition.lang = 'en-US';
+            recognition.lang = 'en-US'; // Can be changed
 
-            voiceSearchBtn.addEventListener("click", () => {
-                voiceSearchBtn.classList.add("is-listening");
-                recognition.start();
+            voiceSearchBtn.addEventListener('click', () => {
+                if (micIcon.classList.contains('listening')) {
+                    recognition.stop();
+                    micIcon.classList.remove('listening');
+                } else {
+                    recognition.start();
+                    micIcon.classList.add('listening');
+                }
             });
 
             recognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
-                searchInput.value = transcript;
-                
-                // Manually trigger the 'keyup' event to filter the list
-                searchInput.dispatchEvent(new Event('keyup'));
+                searchBar.value = transcript;
+                // Trigger the search filter
+                filterCrops();
             };
 
             recognition.onend = () => {
-                voiceSearchBtn.classList.remove("is-listening");
+                micIcon.classList.remove('listening');
             };
 
             recognition.onerror = (event) => {
-                console.error("Speech recognition error:", event.error);
-                alert("Voice recognition failed. Please try again.");
-                voiceSearchBtn.classList.remove("is-listening");
+                console.error("Speech recognition error", event.error);
+                micIcon.classList.remove('listening');
             };
-
         } else {
-            // Hide the button if the API is not supported
-            voiceSearchBtn.style.display = "none";
-            console.warn("Speech Recognition API not supported in this browser.");
+            // Hide button if API is not supported
+            voiceSearchBtn.style.display = 'none';
         }
     }
 
-    // --- Logistics Modal Logic ---
-    const modal = document.getElementById("logistics-modal");
-    const partnerList = document.getElementById("partner-list");
-    let currentOrderId = null;
+    // --- Text Search Filter Functionality ---
+    if (searchBar) {
+        searchBar.addEventListener('keyup', filterCrops);
+    }
 
-    // Function to open the modal
-    function openModal(orderId) {
-        currentOrderId = orderId;
-        partnerList.innerHTML = "<p>Loading partners...</p>"; // Show loading state
-        modal.style.display = "block";
+    function filterCrops() {
+        const filter = searchBar.value.toLowerCase();
+        const cropCards = document.querySelectorAll('.crop-card');
+        
+        cropCards.forEach(card => {
+            const cropName = card.querySelector('h4').textContent.toLowerCase();
+            if (cropName.includes(filter)) {
+                card.style.display = '';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
 
-        // Fetch partners from our API
-        fetch('/api/logistics-partners')
-            .then(response => response.json())
-            .then(partners => {
-                partnerList.innerHTML = ""; // Clear loading state
+    // --- AI Price Suggestion Functionality ---
+    const suggestPriceBtn = document.getElementById('suggest-price-btn');
+    if (suggestPriceBtn) {
+        suggestPriceBtn.addEventListener('click', async (e) => {
+            e.preventDefault(); // Prevent form submission
+            const cropNameField = document.getElementById('crop-name-field');
+            const cropPriceField = document.getElementById('crop-price-field');
+            const cropName = cropNameField.value;
+
+            if (!cropName) {
+                alert('Please enter a Crop Name first.');
+                return;
+            }
+
+            suggestPriceBtn.textContent = '...';
+            suggestPriceBtn.disabled = true;
+
+            try {
+                const response = await fetch(`/api/predict-price/${cropName}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    cropPriceField.value = data.predicted_price;
+                } else {
+                    alert(data.error || 'Could not fetch price.');
+                }
+            } catch (error) {
+                console.error('Error fetching price:', error);
+                alert('An error occurred. Please try again.');
+            } finally {
+                suggestPriceBtn.textContent = 'Suggest Price';
+                suggestPriceBtn.disabled = false;
+            }
+        });
+    }
+
+    // --- Logistics Modal Functionality ---
+    const modal = document.getElementById("logisticsModal");
+    const modalCloseBtn = document.querySelector(".modal-close");
+    const partnerList = document.getElementById("logistics-partner-list");
+    
+    // Open modal
+    document.querySelectorAll('.btn-arrange-transport').forEach(button => {
+        button.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const orderId = e.target.dataset.orderId;
+            modal.dataset.currentOrderId = orderId; // Store orderId in modal
+            
+            // Clear previous list
+            partnerList.innerHTML = "<li>Loading partners...</li>";
+            modal.style.display = "block";
+
+            // Fetch partners
+            try {
+                const response = await fetch('/api/logistics-partners');
+                if (!response.ok) throw new Error('Network response was not ok');
+                const partners = await response.json();
+                
+                partnerList.innerHTML = ""; // Clear "Loading"
                 if (partners.length === 0) {
-                    partnerList.innerHTML = "<p>No logistics partners found.</p>";
+                    partnerList.innerHTML = "<li>No logistics partners found.</li>";
                     return;
                 }
+                
                 partners.forEach(partner => {
-                    const item = document.createElement("li");
-                    item.className = "partner-item";
-                    item.innerHTML = `
-                        <div class="partner-details">
-                            <span class="partner-name">${partner.name}</span>
-                            <span class="partner-contact">${partner.phone || 'No phone'}</span>
-                            <span class.="partner-rating">Rating: ${partner.rating} ★</span>
+                    const li = document.createElement('li');
+                    li.innerHTML = `
+                        <div>
+                            <strong>${partner.name}</strong><br>
+                            <small>Vehicles: ${partner.vehicles} | ${partner.email}</small>
                         </div>
-                        <button class="partner-select-btn" data-partner-id="${partner.id}">Select</button>
+                        <button class="btn-select-partner" data-partner-id="${partner.id}">Select</button>
                     `;
-                    partnerList.appendChild(item);
+                    partnerList.appendChild(li);
                 });
-            })
-            .catch(err => {
-                console.error("Error fetching partners:", err);
-                partnerList.innerHTML = "<p>Could not load partners. Please try again.</p>";
-            });
-    }
 
-    // Function to close the modal
-    function closeModal() {
-        modal.style.display = "none";
-        currentOrderId = null;
-    }
-
-    // Event delegation for opening the modal
-    document.body.addEventListener("click", function(event) {
-        if (event.target.classList.contains("arrange-transport-btn")) {
-            const orderId = event.target.dataset.orderId;
-            openModal(orderId);
-        }
+            } catch (error) {
+                console.error('Error fetching partners:', error);
+                partnerList.innerHTML = `<li>Error loading partners. Please try again.</li>`;
+            }
+        });
     });
 
-    // Event delegation for selecting a partner
-    partnerList.addEventListener("click", function(event) {
-        if (event.target.classList.contains("partner-select-btn")) {
-            const partnerId = event.target.dataset.partnerId;
-            event.target.textContent = "Assigning...";
-            event.target.disabled = true;
-
-            fetch(`/order/${currentOrderId}/assign-logistics`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ partner_id: partnerId }),
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert(data.message);
-                    closeModal();
-                    // Reload the page to show the new status
-                    window.location.reload(); 
-                } else {
-                    alert("Error: " + data.error);
-                    event.target.textContent = "Select";
-                    event.target.disabled = false;
-                }
-            })
-            .catch(err => {
-                console.error("Error assigning partner:", err);
-                alert("An error occurred. Please try again.");
-                event.target.textContent = "Select";
-                event.target.disabled = false;
-            });
+    // Close modal
+    if (modalCloseBtn) {
+        modalCloseBtn.onclick = function() {
+            modal.style.display = "none";
         }
-    });
-
-    // Close modal logic
-    const closeBtn = document.querySelector(".close-btn");
-    if (closeBtn) {
-        closeBtn.onclick = closeModal;
     }
     window.onclick = function(event) {
         if (event.target == modal) {
-            closeModal();
+            modal.style.display = "none";
         }
-    };
+    }
+
+    // Handle partner selection
+    partnerList.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('btn-select-partner')) {
+            const partnerId = e.target.dataset.partnerId;
+            const orderId = modal.dataset.currentOrderId;
+            
+            e.target.textContent = '...';
+            e.target.disabled = true;
+
+            try {
+                const response = await fetch(`/order/${orderId}/assign-logistics`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ partner_id: partnerId })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    modal.style.display = "none";
+                    // Reload the page to show the updated status
+                    window.location.reload();
+                } else {
+                    alert(data.error || 'Could not assign partner.');
+                    e.target.textContent = 'Select';
+                    e.target.disabled = false;
+                }
+            } catch (error) {
+                console.error('Error assigning partner:', error);
+                alert('An error occurred. Please try again.');
+                e.target.textContent = 'Select';
+                e.target.disabled = false;
+            }
+        }
+    });
 
 });
 

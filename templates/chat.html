@@ -3,56 +3,55 @@
 {% block content %}
 <div class="chat-container">
     <div class="chat-header">
-        <h3>Chat about {{ crop.name }}</h3>
-        <p>
-            With: 
-            <strong>
-            {% if current_user.role == 'farmer' %}
-                {{ interlocutor.username }} (Company)
-            {% else %}
-                {{ interlocutor.username }} (Farmer)
-            {% endif %}
-            </strong>
-        </p>
+        <h2>{{ crop.name }}</h2>
+        <p>Negotiation with {{ other_user.username }}</p>
     </div>
 
-    <div class="chat-messages" id="chat-messages">
+    <!-- Messages -->
+    <div class="chat-messages">
         {% for message in messages %}
-            <div class="message {{ 'sent' if message.sender_id == current_user.id else 'received' }}">
-                <div class="bubble">
-                    {{ message.content }}
-                </div>
-                <div class="timestamp">
-                    {{ message.date_sent.strftime('%b %d, %H:%M') }}
-                </div>
+            <div class="message {{ 'sent' if message.author == current_user else 'received' }}">
+                <div class="author">{{ message.author.username }}</div>
+                <div class="body">{{ message.body }}</div>
+                <div class="timestamp">{{ message.timestamp.strftime('%Y-%m-%d %H:%M') }}</div>
             </div>
         {% endfor %}
     </div>
 
-    <form method="POST" action="" class="chat-form">
-        {{ form.hidden_tag() }}
-        {{ form.content(class="form-control", placeholder="Type your message...") }}
-        {{ form.submit(class="submit-btn") }}
-    </form>
-
-    {% if current_user.role == 'company' %}
-    <div class="order-form">
-        <h4>Agree on a Deal? Create an Order</h4>
-        <form action="{{ url_for('create_order', crop_id=crop.id, company_id=current_user.id) }}" method="POST">
-            <div class="order-form-inputs">
-                <div class="form-group" style="flex: 1;">
-                    <label for="quantity" class="form-label">Quantity (Quintals)</label>
-                    <input type="number" step="0.01" name="quantity" class="form-control" required>
-                </div>
-                <div class="form-group" style="flex: 1;">
-                    <label for="price" class="form-label">Total Price (₹)</label>
-                    <input type="number" step="0.01" name="price" class="form-control" required>
-                </div>
+    <!-- Message Input -->
+    <div class="chat-input-area">
+        <form method="POST" action="">
+            {{ form.hidden_tag() }}
+            <div class="form-group" style="flex-grow: 1; margin-bottom: 0;">
+                {{ form.body(class="form-control", placeholder="Type your message...") }}
             </div>
-            <button type="submit" class="submit-btn" style="margin-top: 1rem;">Create Order</button>
+            <div class="form-group" style="margin-bottom: 0;">
+                {{ form.submit(class="submit-btn") }}
+            </div>
+        </form>
+    </div>
+
+    <!-- Create Order Form (Only for Company) -->
+    {% if current_user.role == 'company' %}
+    <div class="order-form-container">
+        <h4>Create a Formal Order</h4>
+        <form method="POST" action="{{ url_for('create_order', crop_id=crop.id, farmer_id=farmer_id, company_id=company_id) }}">
+            {{ order_form.hidden_tag() }}
+            <div class="form-group">
+                {{ order_form.quantity.label(class="form-label") }}
+                {{ order_form.quantity(class="form-control", placeholder="e.g., 50") }}
+            </div>
+             <div class="form-group">
+                {{ order_form.price_per_quintal.label(class="form-label") }}
+                {{ order_form.price_per_quintal(class="form-control", placeholder="e.g., 2000") }}
+            </div>
+             <div class="form-group">
+                {{ order_form.submit(class="submit-btn") }}
+            </div>
         </form>
     </div>
     {% endif %}
+
 </div>
 {% endblock %}
 

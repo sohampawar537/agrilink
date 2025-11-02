@@ -1,16 +1,21 @@
-Virtual environment
+Virtual Environment
 
 venv/
+*.pyc
+pycache/
 
-Local database file
+Database
 
 agrilink.db
+agrilink.db-journal
 
-Secret environment file
+Secrets
 
 .env
+*.env
 
-Python cache
+IDE / OS
 
-pycache/
-*.pyc
+.vscode/
+.idea/
+.DS_Store
